@@ -1,3 +1,3 @@
 console.time('requireLargeTime');
-require('./moduleExportsDynamic.js')
+require('./textures/moduleExportsDynamic.js')
 console.timeEnd('requireLargeTime');
