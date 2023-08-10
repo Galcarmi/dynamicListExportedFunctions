@@ -88,7 +88,6 @@ const dynamicListExportedFunctions = (modulePathToAnalyze) => {
     }
     console.timeEnd('lefRequireTime');
 
-    console.log(currentModule)
     return getModuleExports(currentModule);
 }
 
