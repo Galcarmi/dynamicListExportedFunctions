@@ -5,6 +5,10 @@ const dirtyProxy = new Proxy(()=>{}, {
         if(prop === `dirtyModulePath${module.dirtyModuleIndex}`){
             return dirtyModulePath;
         }
+
+        if(prop === 'dirtyModuleIndex'){
+            return module.dirtyModuleIndex;
+        }
         return dirtyProxy;
     },
     apply() {

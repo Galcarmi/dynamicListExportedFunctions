@@ -33,24 +33,50 @@ const dynamicListExportedFunctions = (modulePathToAnalyze) => {
     }
 
     const isCurrentModuleContainsDirtyKeys = (currentModule) => {
-        for(let key in currentModule){
+        for(let [key, value] of Object.entries(currentModule)){
+
             if(key.startsWith('dirtyModulePath')){
                 return true;
             }
+
+            for(let valueKeys in value){
+                if(valueKeys.startsWith('dirtyModulePath')){
+                    return true;
+                }
+            }
+            return false;
         }
-        return false;
     }
 
     console.time('lefRequireTime');
 
     let currentModule = require(modulePathToAnalyze);
     while(isCurrentModuleContainsDirtyKeys(currentModule)){
-        for(key in currentModule){
-            if(!key.startsWith('dirtyModulePath')){
+        for(let [key, value] of Object.entries(currentModule)){
+            const isKeyDirty = key.startsWith('dirtyModulePath');
+            let isValueDirty = false;
+
+            for(let valueKeys in value){
+                if(valueKeys.startsWith('dirtyModulePath')){
+                    isValueDirty = true;
+                }
+            }
+
+            if(!isKeyDirty && !isValueDirty){
                 continue;
             }
 
-            const dirtyModulePath = currentModule[key];
+            let dirtyModulePath = null;
+            if(isValueDirty){
+                dirtyModulePath  = value[`dirtyModulePath${value.dirtyModuleIndex}`];
+            } else if(isKeyDirty){
+                dirtyModulePath = currentModule[key];
+            }
+            
+            if(dirtyModulePath === null){
+                console.error('dirtyModulePath is null, skipping...')
+            }
+
             modulesToRequire.push(dirtyModulePath);
         }
 
@@ -62,6 +88,7 @@ const dynamicListExportedFunctions = (modulePathToAnalyze) => {
     }
     console.timeEnd('lefRequireTime');
 
+    console.log(currentModule)
     return getModuleExports(currentModule);
 }
 
