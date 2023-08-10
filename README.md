@@ -1,4 +1,6 @@
-# This package lists all exported functions for a specific file.
+# dynamic-list-exported-functions
+
+### This package lists all exported functions for a specific file.
 
 run `node src/tests/regularRequire.js` to see the benchmark of requiring a file with nodejs resolving mechanism.
 
