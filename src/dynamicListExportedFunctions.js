@@ -44,8 +44,8 @@ const dynamicListExportedFunctions = (modulePathToAnalyze) => {
                     return true;
                 }
             }
-            return false;
         }
+        return false;
     }
 
     console.time('lefRequireTime');
