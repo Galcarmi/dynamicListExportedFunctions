@@ -7,7 +7,7 @@ const dirtyProxyPath = path.join(__dirname, './dirtyProxy.js');
 const texturesFolderPath = path.join(__dirname, './tests/textures');
 const requesteBasedModulesToRequire = {};
 
-const handleNPMRequire = () => {
+const handleNPMRequire = (requestUUID, requesteBasedModulesToRequire) => {
     m.Module._load = (request, parent, obj) => {
         if(!parent.id.startsWith(texturesFolderPath)){
             // overriding require only for modules that are in textures folder
@@ -15,11 +15,14 @@ const handleNPMRequire = () => {
             return originalLoadMethod(request, parent, obj);
         }
         if(!request.startsWith('.') && !request.startsWith('/')){
-            debugger
             const resolvedPath = require.resolve(request);
-            const result =  originalLoadMethod(dirtyProxyPath, parent, obj);
-            result.dirtyModulePath =resolvedPath;
-            return result;
+            if(!requesteBasedModulesToRequire[requestUUID].modulePaths.includes(resolvedPath)){
+                const result =  originalLoadMethod(dirtyProxyPath, parent, obj);
+                result.dirtyModulePath = resolvedPath;
+                return result;
+            }
+
+            return originalLoadMethod(request, parent, obj);
         } else {
             return originalLoadMethod(request, parent, obj);
         }
@@ -127,7 +130,7 @@ const dynamicListExportedFunctions = (requestUUID, modulePathToAnalyze) => {
         modulePaths: [modulePathToAnalyze],
     };
     handleFileRequire(requestUUID, requesteBasedModulesToRequire);
-    handleNPMRequire();
+    handleNPMRequire(requestUUID, requesteBasedModulesToRequire);
 
     console.time('lefRequireTime');
 
