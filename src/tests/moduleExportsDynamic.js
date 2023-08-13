@@ -1,10 +1,11 @@
 const path = require('path');
 const { dynamicListExportedFunctions } = require('../dynamicListExportedFunctions');
 const { assert } = require('console');
+const { uniqueId } = require('lodash')
 
 const pathToAnalyze = path.resolve(__dirname, './textures/moduleExportsDynamic.js');
 
-const exportedFunctions = dynamicListExportedFunctions(pathToAnalyze);
+const exportedFunctions = dynamicListExportedFunctions(uniqueId(), pathToAnalyze);
 
 assert(exportedFunctions.includes('add1'));
 assert(exportedFunctions.includes('add2'));

@@ -2,26 +2,46 @@
 const path = require('path');
 const originalJsRequire = require.extensions['.js'];
 
-const dynamicListExportedFunctions = (modulePathToAnalyze) => {
-    const modulesToRequire = [modulePathToAnalyze];
-    const dirtyProxy = path.join(__dirname, './dirtyProxy.js');
-    let dirtyModuleIndex = 0;
-    const texturesFolder = path.join(__dirname, './tests/textures');
+const requestedBasedModulesToRequire = {};
+
+const dynamicListExportedFunctions = (requestUUID, modulePathToAnalyze) => {
+    requestedBasedModulesToRequire[requestUUID] = {
+        modulePaths: [modulePathToAnalyze],
+        dirtyModuleIndex: 0
+    };
+    const dirtyProxyPath = path.join(__dirname, './dirtyProxy.js');
+    const texturesFolderPath = path.join(__dirname, './tests/textures');
+
     require.extensions['.js']= (moduleToRequire, pathToRequire)=>{
-        if(!moduleToRequire.id.startsWith(texturesFolder)){
+        if(!moduleToRequire.id.startsWith(texturesFolderPath)){
             // overriding require only for modules that are in textures folder
             originalJsRequire(moduleToRequire, pathToRequire);
+
+            return;
         }
-        if(modulesToRequire.includes(moduleToRequire.id)){
+        if(!requestedBasedModulesToRequire[requestUUID]?.modulePaths){
+            // overriding require only for requested modules
             originalJsRequire(moduleToRequire, pathToRequire);
+
+            return;
         }
-        else if(moduleToRequire.id === dirtyProxy){
+
+        if(requestedBasedModulesToRequire[requestUUID].modulePaths.includes(moduleToRequire.id)){
             originalJsRequire(moduleToRequire, pathToRequire);
+
+            return;
+        }
+        else if(moduleToRequire.id === dirtyProxyPath){
+            originalJsRequire(moduleToRequire, pathToRequire);
+
+            return;
         }
         else{
             moduleToRequire.dirtyProxyParentPath = moduleToRequire.id;
-            moduleToRequire.dirtyModuleIndex = dirtyModuleIndex++;
-            originalJsRequire(moduleToRequire, dirtyProxy);
+            moduleToRequire.dirtyModuleIndex = requestedBasedModulesToRequire[requestUUID].dirtyModuleIndex++;
+            originalJsRequire(moduleToRequire, dirtyProxyPath);
+
+            return;
         }
     }
 
@@ -82,16 +102,18 @@ const dynamicListExportedFunctions = (modulePathToAnalyze) => {
                 console.error('dirtyModulePath is null, skipping...')
             }
 
-            modulesToRequire.push(dirtyModulePath);
+            requestedBasedModulesToRequire[requestUUID].modulePaths.push(dirtyModulePath);
         }
 
-        for(const moduleToRequire of modulesToRequire){
+        for(const moduleToRequire of requestedBasedModulesToRequire[requestUUID].modulePaths){
             delete require.cache[require.resolve(moduleToRequire)];
         }
 
         currentModule = require(modulePathToAnalyze);
     }
     console.timeEnd('lefRequireTime');
+
+    delete requestedBasedModulesToRequire[requestUUID];
 
     return getModuleExports(currentModule);
 }
