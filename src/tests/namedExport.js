@@ -8,3 +8,4 @@ const pathToAnalyze = path.resolve(__dirname, './textures/namedExportIndex.js');
 const exportedFunctions = dynamicListExportedFunctions(uniqueId(), pathToAnalyze);
 
 assert(exportedFunctions.includes('add13'));
+assert(exportedFunctions.includes('lodashAdd'));

@@ -1,8 +1,8 @@
 const {add13} = require('./namedExport.js');
 
-const a = require('lodash');
+const lodash = require('lodash');
 
 module.exports = {
     add13,
-    a:a.add
+    lodashAdd:lodash.add
 }
