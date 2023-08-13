@@ -1,18 +1,14 @@
 
 const dirtyProxy = new Proxy(()=>{}, {
-    get: function (_target, prop) {
-        if(prop === `dirtyModulePath${module.dirtyModuleIndex}`){
-            return module.dirtyProxyParentPath;
-        }
-
-        if(prop === 'dirtyModuleIndex'){
-            return module.dirtyModuleIndex;
+    get: function (target, prop) {
+        if(prop.startsWith('dirtyModulePath')){
+            return module.dirtyModulePath || target[prop];
         }
 
         return dirtyProxy;
     },
     set: function (target, prop, value) {
-        if(prop === `dirtyModulePath${module.dirtyModuleIndex}` || prop === 'dirtyModuleIndex'){  
+        if(prop.startsWith('dirtyModulePath')){  
             target[prop] = value;
         }
 
@@ -23,7 +19,8 @@ const dirtyProxy = new Proxy(()=>{}, {
     }
 })
 
-dirtyProxy[`dirtyModulePath${module.dirtyModuleIndex}`] = module.dirtyProxyParentPath;
-dirtyProxy.dirtyModuleIndex = module.dirtyModuleIndex;
+if(module.dirtyModulePath){
+    dirtyProxy.dirtyModulePath = module.dirtyModulePath;
+}
 
 module.exports = dirtyProxy;

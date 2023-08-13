@@ -1,80 +1,81 @@
 
 const path = require('path');
+const m = require('module');
 const originalJsRequire = require.extensions['.js'];
+// const originalLoadMethod = m.Module._load;
+const dirtyProxyPath = path.join(__dirname, './dirtyProxy.js');
+const texturesFolderPath = path.join(__dirname, './tests/textures');
+const requesteBasedModulesToRequire = {};
 
-const requestedBasedModulesToRequire = {};
+// const handleNPMRequire = () => {
+//     m.Module._load = (request, parent, obj) => {
+//         if(!request.startsWith('.') && !request.startsWith('/')){
+//             const resolvedPath = require.resolve(request);
+//             const result =  originalLoadMethod(dirtyProxyPath, parent, obj);
+//             result.dirtyModulePath =resolvedPath;
+//             return result;
+//         } else {
+//             return originalLoadMethod(request, parent, obj);
+//         }
+//     }
+// }
 
-const dynamicListExportedFunctions = (requestUUID, modulePathToAnalyze) => {
-    requestedBasedModulesToRequire[requestUUID] = {
-        modulePaths: [modulePathToAnalyze],
-        dirtyModuleIndex: 0
-    };
-    const dirtyProxyPath = path.join(__dirname, './dirtyProxy.js');
-    const texturesFolderPath = path.join(__dirname, './tests/textures');
-
+const handleFileRequire = (requestUUID, requesteBasedModulesToRequire) => {
     require.extensions['.js']= (moduleToRequire, pathToRequire)=>{
         if(!moduleToRequire.id.startsWith(texturesFolderPath)){
             // overriding require only for modules that are in textures folder
-            originalJsRequire(moduleToRequire, pathToRequire);
-
-            return;
+            
+            return originalJsRequire(moduleToRequire, pathToRequire);
         }
-        if(!requestedBasedModulesToRequire[requestUUID]?.modulePaths){
+        if(!requesteBasedModulesToRequire[requestUUID]?.modulePaths){
             // overriding require only for requested modules
-            originalJsRequire(moduleToRequire, pathToRequire);
-
-            return;
+            
+            return originalJsRequire(moduleToRequire, pathToRequire);
         }
 
-        if(requestedBasedModulesToRequire[requestUUID].modulePaths.includes(moduleToRequire.id)){
-            originalJsRequire(moduleToRequire, pathToRequire);
-
-            return;
+        if(requesteBasedModulesToRequire[requestUUID].modulePaths.includes(moduleToRequire.id)){
+            return originalJsRequire(moduleToRequire, pathToRequire);
         }
         else if(moduleToRequire.id === dirtyProxyPath){
-            originalJsRequire(moduleToRequire, pathToRequire);
-
-            return;
+            return originalJsRequire(moduleToRequire, pathToRequire);
         }
         else{
-            moduleToRequire.dirtyProxyParentPath = moduleToRequire.id;
-            moduleToRequire.dirtyModuleIndex = requestedBasedModulesToRequire[requestUUID].dirtyModuleIndex++;
-            originalJsRequire(moduleToRequire, dirtyProxyPath);
+            moduleToRequire.dirtyModulePath = moduleToRequire.id;
 
-            return;
+            return originalJsRequire(moduleToRequire, dirtyProxyPath);
+        }
+    }
+}
+
+const getModuleExports = (currentModule) => {
+    const exportedStuff = [];
+
+    for(let key in currentModule){
+        if(!key.startsWith('dirtyModulePath')){
+            exportedStuff.push(key);
         }
     }
 
-    const getModuleExports = (currentModule) => {
-        const exportedStuff = [];
+    return exportedStuff;
+}
 
-        for(let key in currentModule){
-            if(!key.startsWith('dirtyModulePath')){
-                exportedStuff.push(key);
-            }
+const isCurrentModuleContainsDirtyKeys = (currentModule) => {
+    for(let [key, value] of Object.entries(currentModule)){
+
+        if(key.startsWith('dirtyModulePath')){
+            return true;
         }
 
-        return exportedStuff;
-    }
-
-    const isCurrentModuleContainsDirtyKeys = (currentModule) => {
-        for(let [key, value] of Object.entries(currentModule)){
-
-            if(key.startsWith('dirtyModulePath')){
+        for(let valueKeys in value){
+            if(valueKeys.startsWith('dirtyModulePath')){
                 return true;
             }
-
-            for(let valueKeys in value){
-                if(valueKeys.startsWith('dirtyModulePath')){
-                    return true;
-                }
-            }
         }
-        return false;
     }
+    return false;
+}
 
-    console.time('lefRequireTime');
-
+const requireModuleAndAnalyzeExportsObject = (requestUUID, requesteBasedModulesToRequire, modulePathToAnalyze) => {
     let currentModule = require(modulePathToAnalyze);
     while(isCurrentModuleContainsDirtyKeys(currentModule)){
         for(let [key, value] of Object.entries(currentModule)){
@@ -93,7 +94,7 @@ const dynamicListExportedFunctions = (requestUUID, modulePathToAnalyze) => {
 
             let dirtyModulePath = null;
             if(isValueDirty){
-                dirtyModulePath  = value[`dirtyModulePath${value.dirtyModuleIndex}`];
+                dirtyModulePath  = value.dirtyModulePath;
             } else if(isKeyDirty){
                 dirtyModulePath = currentModule[key];
             }
@@ -102,18 +103,33 @@ const dynamicListExportedFunctions = (requestUUID, modulePathToAnalyze) => {
                 console.error('dirtyModulePath is null, skipping...')
             }
 
-            requestedBasedModulesToRequire[requestUUID].modulePaths.push(dirtyModulePath);
+            requesteBasedModulesToRequire[requestUUID].modulePaths.push(dirtyModulePath);
         }
 
-        for(const moduleToRequire of requestedBasedModulesToRequire[requestUUID].modulePaths){
+        for(const moduleToRequire of requesteBasedModulesToRequire[requestUUID].modulePaths){
             delete require.cache[require.resolve(moduleToRequire)];
         }
 
         currentModule = require(modulePathToAnalyze);
     }
+
+    return currentModule;
+}
+
+const dynamicListExportedFunctions = (requestUUID, modulePathToAnalyze) => {
+    requesteBasedModulesToRequire[requestUUID] = {
+        modulePaths: [modulePathToAnalyze],
+    };
+    handleFileRequire(requestUUID, requesteBasedModulesToRequire);
+    // handleNPMRequire();
+
+    console.time('lefRequireTime');
+
+    const currentModule = requireModuleAndAnalyzeExportsObject(requestUUID, requesteBasedModulesToRequire, modulePathToAnalyze);
+
     console.timeEnd('lefRequireTime');
 
-    delete requestedBasedModulesToRequire[requestUUID];
+    delete requesteBasedModulesToRequire[requestUUID];
 
     return getModuleExports(currentModule);
 }
