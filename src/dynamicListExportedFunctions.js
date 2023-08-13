@@ -2,23 +2,29 @@
 const path = require('path');
 const m = require('module');
 const originalJsRequire = require.extensions['.js'];
-// const originalLoadMethod = m.Module._load;
+const originalLoadMethod = m.Module._load;
 const dirtyProxyPath = path.join(__dirname, './dirtyProxy.js');
 const texturesFolderPath = path.join(__dirname, './tests/textures');
 const requesteBasedModulesToRequire = {};
 
-// const handleNPMRequire = () => {
-//     m.Module._load = (request, parent, obj) => {
-//         if(!request.startsWith('.') && !request.startsWith('/')){
-//             const resolvedPath = require.resolve(request);
-//             const result =  originalLoadMethod(dirtyProxyPath, parent, obj);
-//             result.dirtyModulePath =resolvedPath;
-//             return result;
-//         } else {
-//             return originalLoadMethod(request, parent, obj);
-//         }
-//     }
-// }
+const handleNPMRequire = () => {
+    m.Module._load = (request, parent, obj) => {
+        if(!parent.id.startsWith(texturesFolderPath)){
+            // overriding require only for modules that are in textures folder
+            
+            return originalLoadMethod(request, parent, obj);
+        }
+        if(!request.startsWith('.') && !request.startsWith('/')){
+            debugger
+            const resolvedPath = require.resolve(request);
+            const result =  originalLoadMethod(dirtyProxyPath, parent, obj);
+            result.dirtyModulePath =resolvedPath;
+            return result;
+        } else {
+            return originalLoadMethod(request, parent, obj);
+        }
+    }
+}
 
 const handleFileRequire = (requestUUID, requesteBasedModulesToRequire) => {
     require.extensions['.js']= (moduleToRequire, pathToRequire)=>{
@@ -121,7 +127,7 @@ const dynamicListExportedFunctions = (requestUUID, modulePathToAnalyze) => {
         modulePaths: [modulePathToAnalyze],
     };
     handleFileRequire(requestUUID, requesteBasedModulesToRequire);
-    // handleNPMRequire();
+    handleNPMRequire();
 
     console.time('lefRequireTime');
 
