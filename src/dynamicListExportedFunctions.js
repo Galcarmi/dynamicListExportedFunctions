@@ -6,7 +6,12 @@ const dynamicListExportedFunctions = (modulePathToAnalyze) => {
     const modulesToRequire = [modulePathToAnalyze];
     const dirtyProxy = path.join(__dirname, './dirtyProxy.js');
     let dirtyModuleIndex = 0;
+    const texturesFolder = path.join(__dirname, './tests/textures');
     require.extensions['.js']= (moduleToRequire, pathToRequire)=>{
+        if(!moduleToRequire.id.startsWith(texturesFolder)){
+            // overriding require only for modules that are in textures folder
+            originalJsRequire(moduleToRequire, pathToRequire);
+        }
         if(modulesToRequire.includes(moduleToRequire.id)){
             originalJsRequire(moduleToRequire, pathToRequire);
         }
